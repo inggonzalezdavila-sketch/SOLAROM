@@ -114,6 +114,8 @@
   const st = { fuente: "prueba", dia: D.dias.includes("2025-12-16") ? "2025-12-16" : D.dias[0], subidos: null, diaSub: null,
     iny: { inv: "", tipo: "string_abierto", sev: 0.15 }, verdad: false, invSel: null,
     precio: D.supuestos.precio, costo: D.supuestos.costo, k: D.supuestos.k };
+  let contextoActual = null;
+  let historialChat = [];
 
   function diaActual() {
     let dia, nombre;
@@ -176,6 +178,29 @@
     if (!st.invSel || !R.dia[st.invSel]) st.invSel = (alertas[0] || [...filas].sort((a, b) => b.s.m - a.s.m)[0]).inv;
     const hoy = alertas.slice(0, st.k), cola = alertas.slice(st.k);
     const kwh = hoy.reduce((s, f) => s + f.v.perdida_est, 0);
+    contextoActual = {
+      escenario: R.nombre,
+      fuente: st.fuente === "csv" ? "archivo CSV del usuario" : "periodo de prueba sintético",
+      capacidad_inspecciones: st.k,
+      alertas_totales: alertas.length,
+      inspeccionar_hoy: hoy.map((f) => ({
+        inversor: f.inv,
+        perdida_estimada_kwh_dia: Math.round(f.v.perdida_est),
+        puntaje_anomalia: +f.s.m.toFixed(3),
+        umbral_isolation_forest: +M.umbral.toFixed(3),
+        detectado_por: [f.banderaIF ? "Isolation Forest" : "", f.banderaPR ? "regla de rendimiento" : ""].filter(Boolean).join(" y "),
+        estabilidad_bosques_pct: Math.round(f.estab * 100),
+        pista_tecnica: pistas(f.v)[0][1]
+      })),
+      en_cola: cola.map((f) => f.inv),
+      perdida_atendida_kwh_dia: Math.round(kwh),
+      valor_estimado_cop_dia: Math.round(kwh * st.precio),
+      costo_total_inspecciones_cop: Math.round(hoy.length * st.costo),
+      inversor_seleccionado: st.invSel,
+      regla_decision: `alerta si puntaje IF > ${M.umbral.toFixed(3)} o déficit energético > ${fmt(M.umbral_regla_pr * 100, 1)} %`
+    };
+    const contextoEl = $("#chat-contexto");
+    if (contextoEl) contextoEl.textContent = `${R.nombre}: ${alertas.length} alerta(s), ${hoy.length} inspección(es), ${fmt(kwh)} kWh/día priorizados.`;
     $("#escenario-nombre").textContent = R.nombre;
     $("#kpi-alertas").textContent = alertas.length;
     $("#kpi-insp").textContent = `${hoy.length} de ${st.k}`;
@@ -237,6 +262,70 @@
     $("#mensaje-jefe").innerHTML = `En los 73 días de prueba (oct–dic 2025, datos que el modelo nunca vio), SOLAROM detectó las <b>${sg.eventos_detectados} de ${sg.eventos}</b> fallas con <b>${sg.inspecciones}</b> inspecciones, contra <b>${rot.inspecciones}</b> de la rotación fija. Recuperó <b>${fmt(sg.mwh_recuperados, 1)} MWh</b> y dejó un valor neto de <b>$ ${fmt(sg.valor_neto_cop / 1e6, 1)} millones</b>, frente a <b>$ ${fmt(rot.valor_neto_cop / 1e6, 1)} millones</b> de la rotación. La regla simple de PR logra un valor neto parecido ($ ${fmt(pr.valor_neto_cop / 1e6, 1)} M) pero no ve ${sg.eventos_detectados - pr.eventos_detectados} de las fallas (sensor congelado y derating), que el Isolation Forest sí encuentra.`;
   }
 
+  // ---------------- asistente IA contextual
+  const PROMPT_SISTEMA = `Eres SOLAROM IA, asistente de apoyo para mantenimiento de una planta fotovoltaica.
+Responde siempre en español claro y en máximo 180 palabras. Usa exclusivamente el contexto operativo incluido en la consulta y el conocimiento metodológico indicado aquí: SOLAROM combina Isolation Forest con una regla de rendimiento relativo para priorizar inspecciones. Una anomalía es rareza estadística, no una falla confirmada. Las pistas orientan la revisión, no son diagnósticos. Si el contexto no contiene el dato pedido, dilo sin inventar. Recomienda verificar SCADA, alarmas y condiciones en campo, y respetar los procedimientos de seguridad. No autorices maniobras eléctricas ni prometas ahorros como hechos confirmados.`;
+
+  function textoIA(respuesta) {
+    if (typeof respuesta === "string") return respuesta;
+    const contenido = respuesta && (respuesta.message?.content ?? respuesta.content ?? respuesta.text);
+    if (typeof contenido === "string") return contenido;
+    if (Array.isArray(contenido)) return contenido.map((b) => typeof b === "string" ? b : (b.text || b.content || "")).join("\n").trim();
+    return "No pude interpretar la respuesta del servicio de IA.";
+  }
+
+  function agregarMensaje(rol, texto) {
+    const log = $("#chat-log");
+    const msg = document.createElement("div");
+    msg.className = `mensaje ${rol === "user" ? "usuario" : "asistente"}`;
+    const etiqueta = document.createElement("small");
+    etiqueta.textContent = rol === "user" ? "Tú" : "SOLAROM IA";
+    msg.append(etiqueta, document.createTextNode(texto));
+    log.appendChild(msg);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function respuestaLocal(pregunta) {
+    const c = contextoActual;
+    if (!c) return "Aún no hay un escenario calculado para explicar.";
+    const q = pregunta.toLowerCase();
+    const primero = c.inspeccionar_hoy[0];
+    if (q.includes("puntaje") || q.includes("anomal")) return `El puntaje indica qué tan diferente es el comportamiento del inversor frente a los patrones aprendidos. El umbral actual es ${M.umbral.toFixed(3)}. Superarlo aumenta la prioridad de revisión, pero no demuestra por sí solo una falla; el técnico debe comprobar alarmas, comunicación y condiciones físicas.`;
+    if (q.includes("limit") || q.includes("verific")) return "El modelo fue validado con datos sintéticos y detecta rareza, no causas. Puede perder degradaciones comunes a toda la planta y la suciedad gradual. Antes de actuar, verifica calidad del SCADA, alarmas del inversor, irradiancia, protecciones y evidencia en campo siguiendo el procedimiento de seguridad.";
+    if (primero) return `Para ${c.escenario}, SOLAROM prioriza ${primero.inversor}: estima ${fmt(primero.perdida_estimada_kwh_dia)} kWh/día en riesgo y lo marcó ${primero.detectado_por}. Pista: ${primero.pista_tecnica} Esta es una prioridad de inspección, no una falla confirmada.`;
+    return `En ${c.escenario} ningún inversor supera los umbrales. La decisión sugerida es no enviar la cuadrilla por una alerta del modelo y continuar el monitoreo; cualquier alarma SCADA independiente debe revisarse por separado.`;
+  }
+
+  async function enviarChat(pregunta) {
+    const enviar = $("#chat-enviar"), estado = $("#chat-estado");
+    agregarMensaje("user", pregunta);
+    enviar.disabled = true; estado.textContent = "Consultando el modelo de IA…";
+    try {
+      if (!window.puter?.ai?.chat) throw new Error("Servicio de IA no disponible");
+      const mensajes = [
+        { role: "system", content: PROMPT_SISTEMA },
+        ...historialChat.slice(-8),
+        { role: "user", content: `Contexto operativo actual (JSON):\n${JSON.stringify(contextoActual)}\n\nPregunta del usuario: ${pregunta}` }
+      ];
+      const limite = new Promise((_, reject) => setTimeout(() => reject(new Error("Tiempo de espera agotado")), 12000));
+      const respuesta = textoIA(await Promise.race([window.puter.ai.chat(mensajes), limite]));
+      agregarMensaje("assistant", respuesta);
+      historialChat.push({ role: "user", content: pregunta }, { role: "assistant", content: respuesta });
+      estado.textContent = "Respuesta generada con IA para el escenario activo.";
+    } catch (err) {
+      const respaldo = `Modo local de respaldo: ${respuestaLocal(pregunta)}`;
+      agregarMensaje("assistant", respaldo);
+      historialChat.push({ role: "user", content: pregunta }, { role: "assistant", content: respaldo });
+      estado.textContent = "IA en línea no disponible; se mostró una explicación local identificada.";
+    } finally { enviar.disabled = false; $("#chat-input").focus(); }
+  }
+
+  function limpiarChat() {
+    historialChat = [];
+    $("#chat-log").innerHTML = `<div class="mensaje asistente"><small>SOLAROM IA</small>Nueva conversación. Ya tengo el contexto del escenario activo. ¿Qué deseas entender?</div>`;
+    $("#chat-estado").textContent = "Listo para consultar.";
+  }
+
   // ---------------- controles
   function init() {
     const selDia = $("#sel-dia"); selDia.innerHTML = D.dias.map((d) => `<option ${d === st.dia ? "selected" : ""}>${d}</option>`).join("");
@@ -268,6 +357,14 @@
       const el = $(id); el.value = st[key]; el.addEventListener("input", () => { const v = parseFloat(el.value); if (v >= 0) { st[key] = v; render(); } });
     }
     document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => mostrar(t.dataset.p)));
+    $("#chat-form").addEventListener("submit", async (e) => {
+      e.preventDefault(); const input = $("#chat-input"), pregunta = input.value.trim(); if (!pregunta) return;
+      input.value = ""; await enviarChat(pregunta);
+    });
+    document.querySelectorAll(".pregunta-rapida").forEach((b) => b.addEventListener("click", () => {
+      $("#chat-input").value = b.dataset.pregunta; $("#chat-input").focus();
+    }));
+    $("#chat-limpiar").addEventListener("click", limpiarChat);
     $("#umbral-if").textContent = M.umbral.toFixed(3); $("#umbral-pr").textContent = fmt(M.umbral_regla_pr * 100, 1) + " %";
     // verificación de paridad con scikit-learn
     const err = Math.max(...M.paridad.X.map((x, k) => Math.abs(scoreIF(x).m - M.paridad.s[k])));
@@ -276,8 +373,10 @@
     const h = location.hash.slice(1); if (h) mostrar(h);
   }
   function mostrar(p) {
+    if (!document.getElementById(p)) p = "escenario";
     document.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", t.dataset.p === p));
     document.querySelectorAll(".panel").forEach((el) => (el.hidden = el.id !== p));
+    history.replaceState(null, "", `#${p}`);
   }
   window.SG = { scoreIF, variables, limpiarCSV };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
