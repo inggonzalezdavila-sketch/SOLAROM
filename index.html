@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SOLAROM FV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: consola de operación — franja de estado arriba, pestañas por paso (escenario → hallazgo → decisión → evidencia → transparencia) */
+:root {
+  --bg: #eef2ef; --panel: #ffffff; --ink: #14231e; --muted: #5a6b64; --line: #d5ddd8;
+  --accent: #17868a; --accent-soft: #dcf1f1; --plate: #ffffff; --inst: #34b4b7; --sol: #c77700; --sol-soft: #fbecd2;
+  --alto: #b4321f; --alto-soft: #f8dfda; --ok: #2f7d43; --ok-soft: #dcefdf;
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1714; --panel: #17221e; --ink: #e5eee9; --muted: #98aaa2; --line: #2b3a34;
+  --accent: #4cc4c7; --accent-soft: #173a3b; --sol: #f0a83c; --sol-soft: #3a2c14;
+  --alto: #f07a64; --alto-soft: #42211b; --ok: #6cc183; --ok-soft: #1c3424; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f1714; --panel: #17221e; --ink: #e5eee9; --muted: #98aaa2; --line: #2b3a34;
+  --accent: #4cc4c7; --accent-soft: #173a3b; --sol: #f0a83c; --sol-soft: #3a2c14;
+  --alto: #f07a64; --alto-soft: #42211b; --ok: #6cc183; --ok-soft: #1c3424; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--f-body); margin: 0; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 48px; display: grid; gap: 16px; }
+header.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+.marca h1 { font: 800 clamp(26px, 4vw, 36px)/1 var(--f-display); margin: 0; letter-spacing: -0.01em; }
+.marca h1 span { color: var(--sol); }
+.marca p { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+.eyebrow { font: 500 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+.estado { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.estado > div { background: var(--panel); padding: 12px 16px; min-width: 0; }
+.estado small { display: block; color: var(--muted); font-size: 12px; }
+.estado b { font: 700 24px/1.2 var(--f-display); font-variant-numeric: tabular-nums; }
+.estado .esc b { font-size: 17px; font-family: var(--f-mono); font-weight: 500; }
+nav.tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.tab { appearance: none; border: 0; background: none; color: var(--muted); font: 600 14px var(--f-body); padding: 10px 14px; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
+.tab b { font-family: var(--f-mono); font-weight: 500; margin-right: 6px; color: var(--sol); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.panel { display: grid; gap: 16px; }
+.cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.caja { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.caja h2 { font: 700 19px/1.25 var(--f-display); margin: 0 0 4px; text-wrap: balance; }
+.caja h3 { font: 600 15px var(--f-body); margin: 14px 0 6px; }
+.caja > p.sub { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+label.campo { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+select, input[type=number], input[type=file], textarea { font: 14px var(--f-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; width: 100%; }
+textarea { font-family: var(--f-mono); font-size: 12px; height: 140px; }
+.fuentes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.fuentes label { display: flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 14px; }
+.fuentes label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.rejilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+button.sec { font: 600 13px var(--f-body); background: none; border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+.nota { color: var(--muted); font-size: 13px; }
+.mono { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); }
+.flujo { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font: 500 12px var(--f-mono); color: var(--muted); }
+.flujo span { border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; background: var(--bg); }
+.flujo span.on { border-color: var(--accent); color: var(--accent); }
+svg.chart { width: 100%; height: auto; display: block; }
+svg .grid { stroke: var(--line); stroke-width: 1; }
+svg .tick { fill: var(--muted); font: 11px var(--f-mono); }
+svg .lbl { fill: var(--ink); font: 500 12px var(--f-mono); }
+svg .b-alto { fill: var(--alto); } svg .b-medio { fill: var(--sol); } svg .b-normal { fill: var(--accent); opacity: .55; }
+svg .err { stroke: var(--ink); stroke-width: 1.2; }
+svg .umbral { stroke: var(--alto); stroke-dasharray: 4 3; stroke-width: 1.5; } svg .umbral-t { fill: var(--alto); }
+svg .fila-bar { cursor: pointer; } svg .fila-bar:hover text { fill: var(--accent); }
+svg .otra { fill: none; stroke: var(--muted); stroke-width: 1; opacity: .35; }
+svg .mediana { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 5 4; }
+svg .sel { fill: none; stroke: var(--sol); stroke-width: 3; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.leyenda i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 5px; background: var(--sol); }
+.leyenda i.m { background: none; border-top: 2px dashed var(--ink); } .leyenda i.o { background: var(--muted); opacity: .5; }
+.leyenda i.a { height: 10px; background: var(--alto); } .leyenda i.p { height: 10px; background: var(--sol); } .leyenda i.n { height: 10px; background: var(--accent); opacity: .55; }
+.pill { display: inline-block; font: 600 11.5px var(--f-body); padding: 2px 9px; border-radius: 999px; letter-spacing: .02em; }
+.p-alto { background: var(--alto-soft); color: var(--alto); } .p-medio { background: var(--sol-soft); color: var(--sol); } .p-ok { background: var(--ok-soft); color: var(--ok); }
+.det-cab { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+.tabla-x { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); padding: 6px 8px; }
+td { border-bottom: 1px solid var(--line); padding: 6px 8px; }
+.n { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--f-mono); font-size: 12.5px; }
+.z-alto { color: var(--alto); font-weight: 600; } .neg { color: var(--alto); }
+.fila-sg td { background: var(--accent-soft); font-weight: 600; }
+.pista-t { font-weight: 600; margin: 14px 0 4px; } .pista-t small { font-weight: 400; color: var(--muted); }
+ul.pistas { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+ol.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.orden { border: 1px solid var(--line); border-left: 4px solid var(--alto); border-radius: 8px; padding: 12px 14px; background: var(--panel); }
+.orden.cola { border-left-color: var(--sol); } .orden.vacio { border-left-color: var(--ok); color: var(--muted); }
+.o-cab { display: flex; justify-content: space-between; gap: 8px; align-items: center; } .o-cab b { font: 700 17px var(--f-mono); }
+.o-num { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); margin: 4px 0; font-variant-numeric: tabular-nums; }
+.o-num b { color: var(--ink); }
+.orden p { margin: 4px 0 0; font-size: 14px; }
+.verdad { color: var(--accent) !important; font-family: var(--f-mono); font-size: 12px !important; }
+.decision-frase { font-size: 16px; line-height: 1.6; background: var(--sol-soft); border-radius: 8px; padding: 14px 16px; margin: 0; }
+.particion { display: flex; gap: 2px; border-radius: 8px; overflow: hidden; font-size: 12px; }
+.seg { padding: 8px 10px; min-width: 0; } .seg b { display: block; text-transform: capitalize; } .seg span { font-family: var(--f-mono); font-size: 11px; }
+.seg-entrenamiento { background: var(--accent-soft); } .seg-validacion { background: var(--sol-soft); } .seg-prueba { background: var(--alto-soft); }
+.trans { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.trans h3 { margin-top: 0; }
+.trans ul { padding-left: 18px; margin: 0; display: grid; gap: 6px; font-size: 14px; }
+.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); margin-top: 10px; }
+.inst { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px 20px; background: var(--plate); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; overflow: hidden; position: relative; }
+.inst .franja { position: absolute; inset: 0 auto 0 0; width: 14px; background: url("img/franja.png") repeat-y left top / 14px auto; }
+.inst .logo-u { height: 72px; width: auto; margin-left: 10px; }
+.inst .prog { font: 800 clamp(13px, 2vw, 18px)/1.15 var(--f-display); color: #1f9a9d; text-align: right; letter-spacing: .01em; }
+.inst .prog small { display: block; font: 500 12px var(--f-body); color: #4b5d57; margin-top: 4px; }
+.inst .anillo { height: 72px; width: auto; }
+footer.pie { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; background: var(--plate); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; color: #4b5d57; }
+footer.pie img { height: 52px; width: auto; }
+footer.pie .txt { flex: 1 1 280px; min-width: 0; font-size: 12px; text-align: center; }
+footer.pie .txt b { color: #14231e; }
+@media (max-width: 600px) { .inst { grid-template-columns: auto minmax(0, 1fr); } .inst .anillo { display: none; } .inst .logo-u { height: 56px; } }
+footer.creditos { color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+@media (max-width: 820px) { .cols { grid-template-columns: minmax(0, 1fr); } .estado { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: no-preference) { .orden { transition: border-color .2s; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <div class="inst" role="banner">
+    <span class="franja" aria-hidden="true"></span>
+    <img class="logo-u" src="img/logo_uniguajira_50.png" alt="Universidad de La Guajira, 50 años, acreditada en alta calidad">
+    <div class="prog">ESPECIALIZACIÓN EN SISTEMAS<br>ENERGÉTICOS SOSTENIBLES<small>Machine Learning aplicado a sistemas energéticos · Docente: Aslin Gonzalo Botello Plata</small></div>
+    <img class="anillo" src="img/anillo.png" alt="">
+  </div>
+  <header class="top">
+    <div class="marca">
+      <div class="eyebrow">Planta FV Alta Guajira · 9,6 MWac · 12 inversores · SCADA horario</div>
+      <h1>SOLAR<span>OM</span></h1>
+      <p>Prioriza qué inversores inspeccionar hoy. Un Isolation Forest marca los inversor-día raros; la app traduce la rareza en una orden de trabajo con su valor en kWh y pesos.</p>
+    </div>
+    <div class="flujo" aria-label="Flujo de la aplicación"><span class="on">dato SCADA</span>→<span class="on">Isolation Forest</span>→<span class="on">puntaje ± incertidumbre</span>→<span class="on">orden de inspección</span></div>
+  </header>
+
+  <section class="estado" aria-label="Resumen del escenario">
+    <div class="esc"><small>Escenario evaluado</small><b id="escenario-nombre">—</b></div>
+    <div><small>Inversores en alerta</small><b id="kpi-alertas">—</b></div>
+    <div><small>Inspecciones asignadas hoy</small><b id="kpi-insp">—</b></div>
+    <div><small>Pérdida estimada atendida</small><b><span id="kpi-kwh">—</span> <span style="font-size:14px">kWh/día</span></b><small id="kpi-cop">—</small></div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-p="escenario" aria-selected="true"><b>1</b>Escenario</button>
+    <button class="tab" role="tab" data-p="salida" aria-selected="false"><b>2</b>Hallazgo del modelo</button>
+    <button class="tab" role="tab" data-p="decision" aria-selected="false"><b>3</b>Decisión de hoy</button>
+    <button class="tab" role="tab" data-p="evidencia" aria-selected="false"><b>4</b>Evidencia</button>
+    <button class="tab" role="tab" data-p="transparencia" aria-selected="false"><b>5</b>Transparencia</button>
+  </nav>
+
+  <!-- 1. ENTRADA -->
+  <section class="panel" id="escenario">
+    <div class="cols">
+      <div class="caja">
+        <h2>Datos de entrada</h2>
+        <p class="sub">Elige el día que el modelo debe revisar: un día real del periodo de prueba (que el modelo nunca vio al entrenar) o tu propio archivo SCADA.</p>
+        <div class="fuentes" role="radiogroup">
+          <label><input type="radio" name="fuente" id="f-prueba" value="prueba" checked> Día del periodo de prueba</label>
+          <label><input type="radio" name="fuente" id="f-csv" value="csv"> Subir archivo CSV</label>
+        </div>
+        <div id="bloque-prueba">
+          <label class="campo" for="sel-dia">Fecha (20 oct – 31 dic 2025)<select id="sel-dia"></select></label>
+          <label class="chk"><input type="checkbox" id="ver-verdad"> Modo evaluación: mostrar las fallas reales inyectadas (el operador no las conoce)</label>
+          <p class="nota" id="verdad-dia"></p>
+        </div>
+        <div id="bloque-csv" hidden>
+          <label class="campo" for="archivo">CSV horario con columnas fecha_hora, inversor, ghi_wm2, p_ac_kw, t_inv_c<input type="file" id="archivo" accept=".csv,text/csv"></label>
+          <label class="campo" for="sel-dia-csv" style="margin-top:8px">Día del archivo<select id="sel-dia-csv"></select></label>
+          <p class="nota" id="log-csv">Aún no has cargado un archivo.</p>
+          <button class="sec" id="plantilla" type="button">Ver plantilla con el día seleccionado</button>
+          <div id="plantilla-box" hidden><p class="nota">Copia este texto en un archivo .csv, modifícalo y súbelo.</p><textarea id="plantilla-txt" readonly></textarea></div>
+        </div>
+      </div>
+      <div class="caja">
+        <h2>Simular una falla</h2>
+        <p class="sub">Inyecta una falla sobre el día elegido y mira si el modelo la encuentra y cómo cambia la decisión.</p>
+        <div class="rejilla">
+          <label class="campo" for="iny-inv">Inversor<select id="iny-inv"></select></label>
+          <label class="campo" for="iny-tipo">Tipo de falla<select id="iny-tipo">
+            <option value="string_abierto">String abierto / fusible DC</option>
+            <option value="suciedad_salina">Suciedad salina o polvo</option>
+            <option value="derating_termico">Derating térmico del inversor</option>
+            <option value="disparos">Disparos (horas en cero)</option>
+            <option value="sensor_congelado">Lectura SCADA congelada</option>
+          </select></label>
+          <label class="campo" for="iny-sev">Severidad: <span id="iny-sev-v">15 %</span><input type="range" id="iny-sev" min="2" max="50" value="15"></label>
+        </div>
+        <h3>Supuestos de negocio</h3>
+        <div class="rejilla">
+          <label class="campo" for="in-k">Inspecciones posibles por día<input type="number" id="in-k" min="0" max="12" step="1"></label>
+          <label class="campo" for="in-precio">Precio energía (COP/kWh)<input type="number" id="in-precio" min="0" step="10"></label>
+          <label class="campo" for="in-costo">Costo por inspección (COP)<input type="number" id="in-costo" min="0" step="10000"></label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. SALIDA -->
+  <section class="panel" id="salida" hidden>
+    <div class="cols">
+      <div class="caja">
+        <h2>Puntaje de anomalía por inversor</h2>
+        <p class="sub">Más largo = más raro respecto a lo aprendido en 219 días de operación. El bigote es ±2 desviaciones entre 5 bosques entrenados con semillas distintas (incertidumbre del modelo). Toca una barra para ver el detalle.</p>
+        <div id="barras"></div>
+        <div class="leyenda"><span><i class="a"></i>supera umbral IF</span><span><i class="p"></i>solo regla PR</span><span><i class="n"></i>normal</span></div>
+        <p class="nota">Sin puntaje por datos insuficientes: <span id="excluidos">—</span></p>
+      </div>
+      <div class="caja">
+        <h2>Potencia horaria · <span id="inv-sel" class="mono" style="font-size:16px"></span></h2>
+        <div id="curvas"></div>
+        <div class="leyenda"><span><i></i>inversor elegido</span><span><i class="m"></i>mediana de la flota</span><span><i class="o"></i>otros inversores</span></div>
+        <div id="detalle" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. DECISIÓN -->
+  <section class="panel" id="decision" hidden>
+    <div class="caja">
+      <div class="eyebrow">Orden de trabajo sugerida</div>
+      <p class="decision-frase" id="resumen-decision"></p>
+    </div>
+    <div class="cols">
+      <div class="caja"><h2>Inspeccionar hoy</h2><p class="sub">Inversores en alerta, ordenados por energía que se deja de perder si se corrige la falla.</p><ol class="lista" id="lista-hoy"></ol></div>
+      <div class="caja"><h2>En cola</h2><p class="sub">También en alerta, pero no caben en la capacidad de la cuadrilla. Mañana se reevalúan.</p><ol class="lista" id="lista-cola"></ol>
+        <h3>Sin acción</h3><p class="nota" id="normales"></p>
+        <p class="nota">Regla de alerta: puntaje IF &gt; <span id="umbral-if" class="mono"></span> <b>o</b> déficit de energía frente a su referencia &gt; <span id="umbral-pr" class="mono"></span>. Ambos umbrales se fijaron en el periodo de validación, no en el de prueba.</p></div>
+    </div>
+  </section>
+
+  <!-- 4. EVIDENCIA -->
+  <section class="panel" id="evidencia" hidden>
+    <div class="caja"><div class="eyebrow">Para la gerencia</div><p class="decision-frase" id="mensaje-jefe"></p></div>
+    <div class="caja">
+      <h2>Comparación honesta en el periodo de prueba</h2>
+      <p class="sub">Simulación día a día con la cuadrilla de la planta: cada inspección cuesta; una falla atendida deja de perder energía desde el día siguiente. Partición cronológica 60/20/20.</p>
+      <div class="particion" id="particion"></div>
+      <div class="tabla-x" style="margin-top:12px"><table id="t-backtest"><thead><tr><th>Estrategia</th><th class="n">Inspecciones</th><th class="n">Útiles</th><th class="n">Precisión</th><th class="n">Fallas halladas</th><th class="n">Días hasta hallarla</th><th class="n">MWh recuperados</th><th class="n">Valor neto (M COP)</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="cols">
+      <div class="caja"><h2>¿Qué tipo de falla ve cada método?</h2><p class="sub">AUC-ROC por tipo en el periodo de prueba (1 = separa perfecto, 0,5 = azar). Los disparos no ocurrieron en prueba.</p><div class="tabla-x"><table id="t-auc"></table></div></div>
+      <div class="caja"><h2>Bitácora de limpieza</h2><p class="sub">Datos de todo 2025, 12 inversores, 06:00–18:00.</p><div class="tabla-x"><table><tbody id="bitacora"></tbody></table></div></div>
+    </div>
+  </section>
+
+  <!-- 5. TRANSPARENCIA -->
+  <section class="panel" id="transparencia" hidden>
+    <div class="caja">
+      <h2>Nota de transparencia</h2>
+      <div class="trans">
+        <div><h3>Qué datos usa</h3><ul>
+          <li>SCADA horario por inversor: potencia AC, temperatura del inversor e irradiancia (06:00–18:00).</li>
+          <li><b>Datos sintéticos</b> de una planta de 9,6 MWac en Uribia, con clima calibrado a valores típicos de NASA POWER/IDEAM para la Alta Guajira y 46 fallas inyectadas de 5 tipos.</li>
+          <li>Cinco variables diarias relativas a la flota: energía, potencia de mediodía, horas en cero, exceso de temperatura y lecturas planas. Al comparar con los vecinos, el efecto de las nubes se cancela.</li>
+        </ul></div>
+        <div><h3>Qué tan confiable es</h3><ul>
+          <li>En 73 días nunca vistos encontró 12 de 12 fallas, sin falsas alarmas, con 12 inspecciones contra 146 de la rotación fija.</li>
+          <li>AUC-ROC 0,9996 con datos sintéticos. En una planta real se espera menos: el ruido real es mayor.</li>
+          <li>El bigote de cada barra muestra cuánto cambia el puntaje entre 5 bosques. Si cruza el umbral, la alerta es dudosa.</li>
+          <li id="paridad"></li>
+        </ul></div>
+        <div><h3>Límites conocidos</h3><ul>
+          <li>Detecta <b>rareza</b>, no causas. La pista es una orientación para el técnico, no un diagnóstico.</li>
+          <li>Si muchos inversores fallan a la vez (polvo general), la mediana de la flota baja con ellos y el modelo no lo ve. Para eso sirve el PR contra irradiancia y la limpieza programada.</li>
+          <li>La suciedad que crece despacio se detecta con 4 a 6 días de retraso.</li>
+          <li>Hay que validarlo con SCADA real y reentrenarlo cada trimestre o tras cambios de equipos.</li>
+          <li>Los valores en pesos dependen del precio y del costo de inspección supuestos (editables en Escenario).</li>
+        </ul></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="pie">
+    <img src="img/logo_uniguajira_acreditada.png" alt="Uniguajira acreditada, inclusiva e innovadora">
+    <div class="txt"><b>SOLAROM</b> · Proyecto final · Estudiante: <b>Jaime González Dávila</b> · Período 2026-II<br>Universidad de La Guajira · Kilómetro 3+354 Vía a Maicao (Riohacha – La Guajira) · www.uniguajira.edu.co<br>Misión base: 8 de la Expedición ML Energética (Isolation Forest, planta FV y SCADA)</div>
+    <img src="img/logo_icontec_iqnet.png" alt="Certificaciones ICONTEC ISO 9001 e IQNET">
+  </footer>
+</div>
+
+<script src="modelo_if.js"></script>
+<script src="datos_prueba.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
