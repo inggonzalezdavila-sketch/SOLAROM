@@ -326,6 +326,28 @@ Responde siempre en español claro y en máximo 180 palabras. Usa exclusivamente
     $("#chat-estado").textContent = "Listo para consultar.";
   }
 
+  function actualizarSesionIA() {
+    const el = $("#chat-sesion"), boton = $("#chat-conectar");
+    if (!window.puter?.auth) { el.textContent = "Servicio IA no disponible; funcionará el respaldo local."; boton.disabled = true; return; }
+    const conectada = window.puter.auth.isSignedIn();
+    el.textContent = conectada ? "IA conectada y lista." : "Conecta una cuenta Puter antes de la demostración.";
+    boton.textContent = conectada ? "IA conectada" : "Conectar IA";
+    boton.disabled = conectada;
+  }
+
+  async function conectarIA() {
+    const boton = $("#chat-conectar"), estado = $("#chat-sesion");
+    if (!window.puter?.auth) { actualizarSesionIA(); return; }
+    boton.disabled = true; estado.textContent = "Esperando autorización en la ventana de Puter…";
+    try {
+      await window.puter.auth.signIn();
+      actualizarSesionIA();
+    } catch (err) {
+      estado.textContent = "No se completó la conexión. Puedes reintentar o usar el respaldo local.";
+      boton.disabled = false;
+    }
+  }
+
   // ---------------- controles
   function init() {
     const selDia = $("#sel-dia"); selDia.innerHTML = D.dias.map((d) => `<option ${d === st.dia ? "selected" : ""}>${d}</option>`).join("");
@@ -365,11 +387,12 @@ Responde siempre en español claro y en máximo 180 palabras. Usa exclusivamente
       $("#chat-input").value = b.dataset.pregunta; $("#chat-input").focus();
     }));
     $("#chat-limpiar").addEventListener("click", limpiarChat);
+    $("#chat-conectar").addEventListener("click", conectarIA);
     $("#umbral-if").textContent = M.umbral.toFixed(3); $("#umbral-pr").textContent = fmt(M.umbral_regla_pr * 100, 1) + " %";
     // verificación de paridad con scikit-learn
     const err = Math.max(...M.paridad.X.map((x, k) => Math.abs(scoreIF(x).m - M.paridad.s[k])));
     $("#paridad").textContent = err < 1e-6 ? `Verificado: el puntaje calculado en el navegador coincide con scikit-learn (error máximo ${err.toExponential(1)} en 50 casos).` : `Atención: diferencia con scikit-learn de ${err.toExponential(2)}.`;
-    evidencia(); render();
+    evidencia(); render(); actualizarSesionIA();
     const h = location.hash.slice(1); if (h) mostrar(h);
   }
   function mostrar(p) {

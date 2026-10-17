@@ -124,6 +124,8 @@ ol.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .sugerencias { display: grid; gap: 8px; }
 .sugerencias button { text-align: left; }
 .dato-chat { border-left: 3px solid var(--sol); padding-left: 10px; margin: 14px 0; }
+.conexion-ia { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin: 12px 0; }
+.conexion-ia .nota { margin: 0; flex: 1; }
 .inst { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px 20px; background: var(--plate); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; overflow: hidden; position: relative; }
 .inst .franja { position: absolute; inset: 0 auto 0 0; width: 14px; background: url("img/franja.png") repeat-y left top / 14px auto; }
 .inst .logo-u { height: 72px; width: auto; margin-left: 10px; }
@@ -328,6 +330,7 @@ footer.creditos { color: var(--muted); font-size: 12px; border-top: 1px solid va
           <button class="sec pregunta-rapida" type="button" data-pregunta="¿Cuáles son las limitaciones del modelo y qué debe verificar el técnico?">Explica límites y verificaciones</button>
         </div>
         <p class="dato-chat mono" id="chat-contexto">Preparando el contexto del escenario…</p>
+        <div class="conexion-ia"><button class="sec" id="chat-conectar" type="button">Conectar IA</button><span class="nota" id="chat-sesion">Comprobando conexión…</span></div>
         <p class="nota"><b>Privacidad:</b> no escribas nombres, contraseñas ni información confidencial. La consulta y un resumen del escenario se procesan mediante Puter AI. La primera consulta puede pedir autorización de acceso.</p>
         <button class="sec" id="chat-limpiar" type="button">Nueva conversación</button>
       </aside>

@@ -4,7 +4,7 @@ Aplicación web académica para priorizar la inspección diaria de inversores fo
 
 SOLAROM analiza datos SCADA horarios, calcula cinco variables operativas y combina un modelo **Isolation Forest** con una regla de rendimiento relativo (PR). La salida es una orden de trabajo que indica qué inversores conviene inspeccionar primero, la energía estimada en riesgo y una pista técnica para orientar la revisión.
 
-Incluye **SOLAROM IA**, un chat interactivo que recibe el resumen del escenario activo y explica las alertas, los puntajes, la prioridad de inspección y los límites del modelo. La integración usa Puter AI desde el navegador y no guarda una clave privada en el repositorio. La primera consulta puede solicitar al visitante autorización o inicio de sesión.
+Incluye **SOLAROM IA**, un chat interactivo que recibe el resumen del escenario activo y explica las alertas, los puntajes, la prioridad de inspección y los límites del modelo. La integración usa Puter AI desde el navegador y no guarda una clave privada en el repositorio. Antes de la demostración se debe pulsar **Conectar IA** y completar la autorización de Puter una sola vez.
 
 ## Abrir la aplicación
 
